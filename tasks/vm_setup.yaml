@@ -1,0 +1,60 @@
+---
+- name: VM setup for master and workers
+  hosts: all
+  become: true
+  vars:
+    ansible_controller: 10.0.1.183
+    hosts_entries:
+      - { ip: "10.0.1.172", name: "master" }
+      - { ip: "10.0.1.185", name: "worker1" }
+      - { ip: "10.0.1.175", name: "worker2" }
+
+  tasks:
+    # Task 1: Set hostname
+    - name: Set hostname based on inventory
+      hostname:
+        name: "{{ inventory_hostname }}"
+      when: inventory_hostname in ["master", "worker1", "worker2"]
+
+    # Task 2: Update /etc/hosts
+    - name: Ensure /etc/hosts entries for master and workers
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ item.ip }} {{ item.name }}"
+        state: present
+      loop: "{{ hosts_entries }}"
+
+    # Task 3: Create user ndileva
+    - name: Create user ndileva with sudo privileges
+      user:
+        name: ndileva
+        state: present
+        create_home: true
+        groups: wheel
+        append: true
+        password: "{{ '1111' | password_hash('sha512') }}"
+
+    # Task 4: Configure network autoconnect
+    - name: Get connection names
+      command: nmcli -t -f NAME connection show
+      register: nmcli_connections
+      changed_when: false
+
+    - name: Enable autoconnect for all connections
+      command: nmcli connection modify "{{ item }}" connection.autoconnect yes
+      loop: "{{ nmcli_connections.stdout_lines }}"
+
+    # Task 5: Configure SSH
+    - name: Set PermitRootLogin to prohibit-password
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin.*'
+        line: 'PermitRootLogin prohibit-password'
+        state: present
+
+    - name: Restart SSH service
+      service:
+        name: sshd
+        state: restarted
+    - name: reboot
+      command: reboot      
