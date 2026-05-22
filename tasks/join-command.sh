@@ -1,0 +1,1 @@
+kubeadm join 10.0.1.188:6443 --token ak4leg.0f4gjychni78mui1 --discovery-token-ca-cert-hash sha256:049a7f936f66180761119494f3e82163dfebc8ce8534dc81a6e4d39bfde2a41b 
